@@ -1,7 +1,18 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Cookies from "js-cookie";
 import Papa from "papaparse";
+
+// データの型定義
+type SubmittedData = {
+  id: number;
+  name: string;
+  option2: string;
+  option3: string;
+  contents: string;
+  extrainput: string;
+  data: string;
+};
 
 const formatDate = (date: string) => {
   const dateObj = new Date(date);
@@ -25,7 +36,7 @@ const convertNewlinesToBreaks = (text: string) => {
 export default function Page() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [submittedDataList, setSubmittedDataList] = useState<any[]>([]);
+  const [submittedDataList, setSubmittedDataList] = useState<SubmittedData[]>([]);
   const [options, setOptions] = useState<string[]>([]);
   const [options2, setOptions2] = useState<{ [key: string]: string[] }>({});
   const [options3, setOptions3] = useState<{ [key: string]: string[] }>({});
@@ -34,9 +45,27 @@ export default function Page() {
   const [selectedOption3, setSelectedOption3] = useState<string>("");
   const [extraInput, setExtraInput] = useState<string>(""); // 名前入力欄
   const [textareaContent, setTextareaContent] = useState<string>("");
-
   const [checkboxes, setCheckboxes] = useState<boolean[]>([false, false, false]);
   const checkboxLabels = ["安全", "品質", "その他"];
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const fetchSubmittedData = async () => {
+    try {
+      const response = await fetch("/api/submit", { method: "GET" });
+      if (!response.ok) {
+        throw new Error(`Error fetching data: ${response.status}`);
+      }
+      const data: SubmittedData[] = await response.json();
+      console.log("Fetched data:", data);
+      setSubmittedDataList(data);
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } catch (error) {
+      setErrorMessage("データの取得に失敗しました");
+      console.error("Fetch error:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -82,26 +111,6 @@ export default function Page() {
       }
     };
 
-    const fetchSubmittedData = async () => {
-      try {
-        const response = await fetch("/api/submit", {
-          method: "GET",
-        });
-        if (!response.ok) {
-          throw new Error(`Error fetching data: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log("Fetched data:", data);
-        setSubmittedDataList(data);
-      } catch (error) {
-        setErrorMessage("データの取得に失敗しました");
-        console.error("Fetch error:", error);
-      }
-    };
-    
-    
-    
-
     // データ取得
     fetchOptions();
     fetchOptions2();
@@ -120,13 +129,11 @@ export default function Page() {
     if (savedSelectedOption3) setSelectedOption3(savedSelectedOption3);
     if (savedExtraInput) setExtraInput(savedExtraInput);
     if (savedTextareaContent) setTextareaContent(savedTextareaContent);
-    
   }, []);
-
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     const formData = {
       name: selectedOption,
       option2: selectedOption2,
@@ -134,11 +141,9 @@ export default function Page() {
       contents: textareaContent,
       extrainput: extraInput,
       date: new Date().toISOString(),
-      checkboxes: checkboxLabels.filter((_, index) => checkboxes[index]).join(", ") || null, 
+      checkboxes: checkboxLabels.filter((_, index) => checkboxes[index]).join(", ") || null,
     };
-  
-    console.log("送信データ:", formData);
-  
+
     try {
       const response = await fetch("/api/submit", {
         method: "POST",
@@ -147,52 +152,44 @@ export default function Page() {
         },
         body: JSON.stringify(formData),
       });
-  
+
       if (!response.ok) {
         throw new Error(`サーバーエラー: ${response.status}`);
       }
-  
+
       const result = await response.json();
       console.log("送信結果:", result);
       setSuccessMessage("データが正常に送信されました");
       setTextareaContent("");
       setExtraInput("");
       setCheckboxes([false, false, false]);
+
+      // データを再取得して画面を更新
+      await fetchSubmittedData();
     } catch (error) {
-      setErrorMessage("送信エラーが発生しました: " + error.message);
+      setErrorMessage(
+        `送信エラーが発生しました: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
       console.error("送信エラー:", error);
     }
   };
-  
-  
-  
-  
-
-  // 状態をCookieに保存
-  useEffect(() => {
-    Cookies.set("selectedOption", selectedOption,{ expires: 7 });
-    Cookies.set("selectedOption2", selectedOption2,{ expires: 7 });
-    Cookies.set("selectedOption3", selectedOption3,{ expires: 7 });
-    Cookies.set("extraInput", extraInput,{ expires: 7, }); 
-    Cookies.set("textareaContent", textareaContent,{ expires: 7 });
-  }, [selectedOption, selectedOption2, selectedOption3, extraInput, textareaContent]);
 
   const filteredData = submittedDataList.filter((data) => {
     const postDate = new Date(data.data);
-    
-    // 今日の日付を取得し、時分秒をリセット
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    // 投稿の日付も時分秒をリセット
+
     const postDay = new Date(postDate);
     postDay.setHours(0, 0, 0, 0);
-    
+
     return (
       data.name === selectedOption &&
       data.option2 === selectedOption2 &&
       data.option3 === selectedOption3 &&
-      postDay.getTime() === today.getTime() // 日付が今日であることを確認
+      postDay.getTime() === today.getTime()
     );
   });
   
@@ -306,8 +303,9 @@ export default function Page() {
         >
           送信
         </button>
+        <div ref={bottomRef}></div>
       </form>
     </main>
+    
   );
 }
-

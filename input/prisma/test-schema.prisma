@@ -1,0 +1,22 @@
+datasource test{
+  provider = "postgresql"
+  url      = env("DATABASE_URL_TEST")
+}
+generator client_wcb_db {
+  provider = "prisma-client-js"
+  output   = "./generated/client/report"
+}
+model report {
+    report_id              String   @id 
+    report_date     DateTime
+    t_code            String
+    w_code            String
+    shift             String
+    info_safety       String?
+    info_safety_html  String?
+    info_quality      String?
+    info_quality_html String?
+    info_other        String?
+    info_other_html   String?
+    update            String
+}

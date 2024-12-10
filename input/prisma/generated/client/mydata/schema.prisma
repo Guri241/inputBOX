@@ -1,0 +1,20 @@
+datasource minutes {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_MINUTES")
+}
+
+generator client_MINNUTES {
+  provider = "prisma-client-js"
+  output   = "./generated/client/mydata"
+}
+
+model mydata {
+  id         Int      @id @default(autoincrement())
+  name       String
+  option2    String
+  option3    String
+  checkboxes String[] @default([])
+  extrainput String
+  contents   String
+  data       DateTime @default(now())
+}

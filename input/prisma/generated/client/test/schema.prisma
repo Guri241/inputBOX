@@ -1,0 +1,15 @@
+datasource test {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_TEST")
+}
+
+generator clientTest {
+  provider = "prisma-client-js"
+  output   = "./generated/client/test"
+}
+
+model report {
+  id          Int      @id @default(autoincrement())
+  description String
+  createdAt   DateTime @default(now())
+}
